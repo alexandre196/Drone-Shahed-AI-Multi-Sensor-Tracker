@@ -1,0 +1,24 @@
+# Drone_Shaed_AI — requirements.txt
+# Généré à partir des imports réels de drone_shahed_detector.py, entrainement_v2.py,
+# train_shahed.py, Annotate_dessous.py, download_shahed_dataset.py
+
+ultralytics>=8.1.0
+opencv-python>=4.9.0
+numpy>=1.24.0,<2.0.0
+matplotlib>=3.8.0
+reportlab>=4.1.0
+Pillow>=10.0.0
+requests>=2.31.0
+
+# Notes :
+# - tkinter, smtplib, ssl, email, wave, subprocess, logging, threading, os, sys, warnings
+#   font partie de la bibliothèque standard Python, pas besoin de les installer.
+# - winsound est aussi stdlib mais disponible uniquement sur Windows (déjà géré
+#   en try/except dans le code, aucune action requise).
+# - numpy est plafonné à <2.0.0 par précaution : certaines versions d'ultralytics
+#   et d'opencv-python ne sont pas encore toutes compatibles avec numpy 2.x.
+#   Si tu confirmes la compatibilité avec ta version d'ultralytics, tu peux retirer ce plafond.
+
+# Dépendance système optionnelle (audio intégré dans la vidéo exportée) :
+#   Windows : winget install ffmpeg
+#   macOS   : brew install ffmpeg
