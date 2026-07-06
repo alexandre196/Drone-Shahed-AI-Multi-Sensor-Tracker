@@ -52,7 +52,7 @@
 
 ## 🖥️ Screenshot
 
-<img width="3840" height="2160" alt="shahed_detector1" src="https://github.com/user-attachments/assets/0acdbfc0-4eb4-4966-aa18-d17931e0bd05" />
+<img width="3840" height="2086" alt="shahed_detector01" src="https://github.com/user-attachments/assets/0c4ffd19-4a07-4817-ae6a-10be6754fdce" />
 
 ---
 
