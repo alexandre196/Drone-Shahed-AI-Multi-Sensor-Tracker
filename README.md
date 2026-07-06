@@ -56,6 +56,14 @@
 
 ---
 
+## 🎬 Demo Video
+
+[![Shahed Detection System Demo](https://img.youtube.com/vi/x4tG5W_8uVs/maxresdefault.jpg)](https://www.youtube.com/watch?v=x4tG5W_8uVs)
+
+> Click the image to watch the demo on YouTube
+
+---
+
 ## ⚙️ Installation
 
 ```bash
