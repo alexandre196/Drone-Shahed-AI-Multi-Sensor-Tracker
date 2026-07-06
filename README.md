@@ -52,7 +52,7 @@
 
 ## 🖥️ Screenshot
 
-![Shahed Detection System GUI](bottleneck_diagram.jpg)
+<img width="3840" height="2160" alt="shahed_detector1" src="https://github.com/user-attachments/assets/0acdbfc0-4eb4-4966-aa18-d17931e0bd05" />
 
 ---
 
