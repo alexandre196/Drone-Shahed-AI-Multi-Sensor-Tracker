@@ -1,171 +1,170 @@
 # 🎯 Shahed Detection System
-### YOLOv8 real-time drone detection — Kalman tracking · PDF report · KML export
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python)
-![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-purple?style=flat-square)
-![License](https://img.shields.io/badge/License-GPL--3.0-red?style=flat-square)
-![mAP](https://img.shields.io/badge/mAP%4050-91.1%25-brightgreen?style=flat-square)
-![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-lightgrey?style=flat-square)
+<div align="center">
 
-> Système de détection temps réel de drones Shahed-136 par IA — développé par **alexandre196**
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
+![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-orange)
+![License](https://img.shields.io/badge/License-GPL--3.0-green)
+![mAP@50 Shahed](https://img.shields.io/badge/mAP@50%20Shahed-99.5%25-brightgreen)
+![mAP@50 Global](https://img.shields.io/badge/mAP@50%20Global-89.4%25-yellow)
+![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-lightgrey)
 
----
+**YOLOv8 real-time drone detection — Kalman tracking · PDF report · KML export**
 
-## 📸 Features
+*Système de détection temps réel de drones Shahed-136 par IA — développé par [alexandre196](https://github.com/alexandre196)*
 
-- ✅ **YOLOv8s** entraîné sur dataset Shahed — mAP@50 = **91.1%** (classes : `bird` / `not` / `shahed`)
-- ✅ **Filtre de Kalman** + tracking multi-drones avec ID persistants
-- ✅ **Live preview** dans l'interface (Tkinter)
-- ✅ **Alarme sonore** temps réel (Windows) + intégrée dans la vidéo (ffmpeg)
-- ✅ **Géolocalisation estimée** sans GPS — azimut + distance métrique
-- ✅ **Mini-carte radar** live dans le GUI
-- ✅ **Export KML** → Google Earth
-- ✅ **Export CSV** → Excel / QGIS
-- ✅ **Rapport PDF** avec stats, graphiques, carte et photo du drone
-- ✅ **Analyse comportementale** : hovering, circling, approche rapide, erratique
-- ✅ **Alertes email** (Gmail) + **push notifications** (Ntfy)
-- ✅ **Calibration caméra** par objet de référence (en mètres)
-- ✅ Sources : fichier vidéo / webcam / flux RTSP
+</div>
 
 ---
 
-## 🚀 Installation
+## 🚀 Features
+
+- ✅ **YOLOv8s fine-tuned** on Shahed dataset — mAP@50 = **99.5% on Shahed class** (89.4% global)
+- ✅ **Multi-class classifier** : `bird` / `not` / `shahed` — optimized to minimize false positives
+- ✅ **Multi-object Kalman tracking** — persistent drone ID, trajectory trail, velocity & direction
+- ✅ **Behavioral analysis** — hovering, circling, fast approach, erratic motion detection
+- ✅ **GPS-free geolocalization** — monocular distance + camera-heading-aware azimuth → lat/lon
+- ✅ **Live radar mini-map** — real-time position display in GUI
+- ✅ **3 input sources** — video file / webcam / RTSP IP camera (FLIR, Hikvision, Axis...)
+- ✅ **Automated alerts** — audio alarm + email (Gmail SMTP) + push notification (Ntfy)
+- ✅ **KML export** — Google Earth trajectory with geolocalized pins
+- ✅ **CSV export** — for QGIS and GIS tools
+- ✅ **Automated PDF report** — stats, charts, radar map, closest threat image
+- ✅ **Temporal confirmation filter** — N consecutive frames before alarm (anti false-positive)
+- ✅ **Configurable danger zone** — adjustable threshold in meters (default 300m)
+- ✅ **Cross-platform** — Windows & macOS
+
+---
+
+## 📊 Model Performance (v2 — fine-tuned)
+
+| Class | mAP@50 | mAP@50-95 |
+|-------|--------|-----------|
+| **shahed** | **99.5%** | 84.3% |
+| bird | 83.9% | 52.1% |
+| not | 86.3% | 57.9% |
+| **ALL** | **89.4%** | 64.8% |
+
+> Model v2 fine-tuned on 16,069 images including top-view, side-view and **bottom-view** Shahed-136 footage.  
+> Training: 50 epochs · RTX 4070 Ti · 1h54
+
+---
+
+## 🖥️ Screenshot
+
+![Shahed Detection System GUI](bottleneck_diagram.jpg)
+
+---
+
+## ⚙️ Installation
 
 ```bash
-pip install ultralytics opencv-python numpy matplotlib reportlab Pillow requests
+pip install ultralytics opencv-python numpy matplotlib reportlab Pillow
 ```
 
-**Optionnel — audio dans la vidéo :**
+**Optional (audio alarm on Windows):**
 ```bash
-# Windows
 winget install ffmpeg
+```
 
-# macOS
+**Optional (audio alarm on macOS):**
+```bash
 brew install ffmpeg
 ```
 
 ---
 
-## 📥 Télécharger le modèle entraîné
-
-Le fichier `best.pt` (mAP@50 = 91.1%) est disponible dans les **Releases** :
-
-👉 **[Télécharger best.pt — v1.0](https://github.com/alexandre196/Drone_Shaed_AI/releases/download/v1.0/best.pt)**
-
-Placer le fichier dans :
-```
-Drone_Shaed_AI/
-└── runs/
-    └── detect/
-        └── shahed_detector/
-            └── weights/
-                └── best.pt   ← ici
-```
-
----
-
-## ▶️ Utilisation
+## 🚀 Usage
 
 ```bash
 python drone_shahed_detector.py
 ```
 
-L'interface graphique s'ouvre automatiquement.
-
-1. Sélectionner la **source vidéo** (fichier / webcam / RTSP)
-2. Le modèle Shahed est chargé automatiquement
-3. Cliquer **LANCER LA DÉTECTION**
-4. Les fichiers sont générés dans un dossier horodaté
+1. Select your video source — **File / Webcam / RTSP stream**
+2. Load the model (`runs/detect/shahed_detector/weights/best.pt`)
+3. Set your camera GPS position, FOV, heading
+4. Configure danger distance threshold (meters)
+5. Click **LANCER LA DÉTECTION**
 
 ---
 
-## 📁 Structure du projet
+## 📁 Project Structure
 
 ```
 Drone_Shaed_AI/
-├── drone_shahed_detector.py      # Application principale
-├── train_shahed.py               # Script d'entraînement YOLOv8
-├── download_shahed_dataset.py    # Téléchargement du dataset
-├── Annotate_dessous.py           # Outil d'annotation
-├── entrainement_v2.py            # Entraînement v2
-├── chiffres.py                   # Statistiques dataset
-├── target.png                    # Overlay viseur
-├── .gitignore
-└── runs/detect/shahed_detector/weights/best.pt  # Modèle (via Release)
+├── drone_shahed_detector.py   # Main detection system (GUI + pipeline)
+├── entrainement_v2.py         # Fine-tuning script (transfer learning)
+├── Annotate_dessous.py        # Manual annotation tool (YOLO format)
+├── train_shahed.py            # Initial training script
+├── download_shahed_dataset.py # Dataset download helper
+├── chiffres.py                # Statistics utility
+└── README.md
 ```
 
 ---
 
-## 📊 Performances du modèle
+## 🧠 Architecture
 
-| Classe   | Précision | Rappel | mAP@50 |
-|----------|-----------|--------|--------|
-| bird     | 94.2%     | 91.8%  | 93.1%  |
-| not      | 88.7%     | 86.4%  | 87.9%  |
-| shahed   | 92.6%     | 93.4%  | 93.3%  |
-| **All**  | **91.8%** | **90.5%** | **91.1%** |
-
----
-
-## 🗂️ Fichiers générés après analyse
-
-| Fichier | Description |
-|---------|-------------|
-| `*_detected.mp4` | Vidéo annotée avec HUD |
-| `*_report.pdf` | Rapport complet avec stats et carte |
-| `*_charts.png` | Graphiques distances / timeline |
-| `*_geomap.png` | Carte des trajectoires estimées |
-| `*_trajectory.kml` | Export Google Earth |
-| `*_trajectory.csv` | Export Excel / QGIS |
-
----
-
-## ⚙️ Paramètres principaux
-
-| Paramètre | Défaut | Description |
-|-----------|--------|-------------|
-| Seuil danger | 300 m | Distance d'alerte en mètres |
-| Frame skip | 1 | Traiter 1 frame sur N (performance) |
-| Confirmation | 3 frames | Anti-faux-positifs |
-| FOV caméra | 60° | Champ de vision horizontal |
-| Cap caméra | 0° (Nord) | Orientation de la caméra |
-
----
-
-## 📐 Distances par classe
-
-| Classe | Largeur réelle | Usage |
-|--------|---------------|-------|
-| shahed / shahed-136 | 2.5 m | Envergure Shahed-136 |
-| fpv-drone / drone | 0.40 m | FPV racing drone |
-| bird / not | 0.50 m | Référence neutre |
-
----
-
-## 📧 Alertes
-
-- **Email** : Gmail avec App Password — alerte avec photo à chaque détection Shahed
-- **Push** : [Ntfy.sh](https://ntfy.sh) — notification mobile instantanée
-
----
-
-## 🛠️ Ré-entraîner le modèle
-
-```bash
-python train_shahed.py
 ```
-
-Ou télécharger le dataset :
-```bash
-python download_shahed_dataset.py
+Camera / Video / RTSP
+        ↓
+   YOLOv8s Inference (GPU/CPU)
+        ↓
+   Kalman Multi-Object Tracker
+        ↓
+   Behavioral Analysis
+        ↓
+   GPS-Free Geolocalization
+        ↓
+   Alert Pipeline (audio + email + push)
+        ↓
+   KML / CSV / PDF Export
 ```
 
 ---
 
-## 📄 Licence
+## 🗂️ Model Classes
 
-GPL-3.0 License — © 2026 Alexandre Martin (alexandre196)
+| Index | Class | Description |
+|-------|-------|-------------|
+| 0 | `bird` | Birds — neutral, no alarm |
+| 1 | `not` | Other objects — neutral |
+| 2 | `shahed` | Shahed-136 kamikaze drone — **DANGER** |
 
 ---
 
-*Développé à Lyon, France 🇫🇷*
+## 📍 Geolocalization
+
+The system estimates drone position **without GPS** using:
+- Per-class real wingspan (Shahed-136 = **2.5m**)
+- Camera FOV + auto-computed focal length
+- Camera heading (0=North, 90=East, 180=South, 270=West)
+- Pixel position → azimuth → lat/lon offset
+
+Positions are exported as **KML** (Google Earth) and **CSV** (QGIS).
+
+---
+
+## 🔔 Alert Pipeline
+
+| Trigger | Action |
+|---------|--------|
+| Shahed detected | Audio alarm |
+| Distance < threshold | Email with drone image |
+| Confirmed N frames | Ntfy push notification |
+| End of analysis | Automated PDF report |
+
+---
+
+## 📄 License
+
+GPL-3.0 — see [LICENSE](LICENSE)
+
+---
+
+## 👤 Author
+
+**Alexandre Martin** — AM Consulting, France  
+[GitHub](https://github.com/alexandre196) · [Website](https://www.amconsulting-formation.com)
+
+> *"Every second of early warning saves lives."*
