@@ -1,4 +1,4 @@
-# 🎯 Shahed Detection System
+# 🎯 Shahed Detection System — Multi-Sensor Fusion Edition
 
 <div align="center">
 
@@ -7,13 +7,59 @@
 ![License](https://img.shields.io/badge/License-GPL--3.0-green)
 ![mAP@50 Shahed](https://img.shields.io/badge/mAP@50%20Shahed-99.5%25-brightgreen)
 ![mAP@50 Global](https://img.shields.io/badge/mAP@50%20Global-89.4%25-yellow)
+![Tracking](https://img.shields.io/badge/Tracking-Multi--Sensor%20Kalman%20Fusion-blueviolet)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-lightgrey)
 
-**YOLOv8 real-time drone detection — Kalman tracking · PDF report · KML export**
+**YOLOv8 real-time drone detection · Multi-sensor Kalman fusion tracking · PDF report · KML export**
 
-*Système de détection temps réel de drones Shahed-136 par IA — développé par [alexandre196](https://github.com/alexandre196)*
+*Système de détection et de suivi temps réel de drones Shahed-136 par IA — développé par [alexandre196](https://github.com/alexandre196)*
 
 </div>
+
+---
+
+## 🆕 What's new in this fork — Sensor Fusion
+
+This repository extends the original [`Drone_Shaed_AI`](https://github.com/alexandre196/Drone_Shaed_AI) with a rewritten tracking core (`sensor_fusion.py`), moving from a single-sensor constant-velocity Kalman filter to a **multi-sensor, constant-acceleration fusion tracker**:
+
+| | Original tracker | Fusion tracker |
+|---|---|---|
+| Motion model | Constant velocity `[x,y,vx,vy]` | **Constant acceleration** `[x,y,vx,vy,ax,ay]` — tracks turns and maneuvers, not just straight lines |
+| Sensors | Camera (YOLO) only | Camera **+ pluggable second sensor** (RF, radar, second camera) via `add_external_measurement()` |
+| Timing | Implicit (1 update = 1 frame) | **Explicit timestamps (seconds)** — robust to variable FPS / frame-skip |
+| Async / late measurements | Not handled | **Out-of-sequence measurement handling** — rewinds and replays filter history when a slower sensor's reading arrives late |
+| Forward prediction | Frame-by-frame only | `predict_trajectory(horizon_s)` — projects several seconds ahead with a **growing uncertainty cone** |
+
+### Why it matters
+
+A single visual sensor loses the target during occlusion, glare, or a sharp turn — the exact moment tracking matters most. In a controlled two-sensor simulation (30Hz low-noise camera with a 1.8s dropout during a turn, fused with a 5Hz higher-noise RF-style sensor at 150ms latency):
+
+| Track | RMSE vs ground truth |
+|---|---|
+| Camera only | 5.47 px |
+| RF/radar only | 14.06 px |
+| **Fused** | **3.36 px** |
+
+The fusion track stays locked on the true trajectory through the dropout window instead of drifting or freezing — see [`simulate_fusion_demo.py`](simulate_fusion_demo.py) for the full reproducible scenario and plot.
+
+### Architecture of `sensor_fusion.py`
+
+```
+Measurement(t, x, y, R, sensor_id)
+        │
+        ▼
+FusionTrack  ── predict(t) ──────► state propagated to any timestamp (CA model)
+        │
+        ├── fuse(measurement) ───► standard KF update if measurement is current
+        │
+        ├── fuse(late measurement) ─► rewind to nearest checkpoint,
+        │                             replay all measurements in
+        │                             chronological order (OOSM handling)
+        │
+        └── predict_trajectory(horizon_s) ─► future path + 1-σ uncertainty ellipse
+```
+
+Integrated into the existing `DroneTracker` class (`drone_shahed_detector.py`) — same public API (`track()`, trail, IDs), so the GUI, CSV/KML export and PDF report all work unchanged.
 
 ---
 
@@ -21,7 +67,8 @@
 
 - ✅ **YOLOv8s fine-tuned** on Shahed dataset — mAP@50 = **99.5% on Shahed class** (89.4% global)
 - ✅ **Multi-class classifier** : `bird` / `not` / `shahed` — optimized to minimize false positives
-- ✅ **Multi-object Kalman tracking** — persistent drone ID, trajectory trail, velocity & direction
+- ✅ **Multi-sensor Kalman fusion tracking** — constant-acceleration model, out-of-sequence measurement handling, persistent drone ID, trajectory trail, velocity & direction
+- ✅ **Trajectory prediction with uncertainty cone** — project the estimated future path several seconds ahead
 - ✅ **Behavioral analysis** — hovering, circling, fast approach, erratic motion detection
 - ✅ **GPS-free geolocalization** — monocular distance + camera-heading-aware azimuth → lat/lon
 - ✅ **Live radar mini-map** — real-time position display in GUI
@@ -45,29 +92,15 @@
 | not | 86.3% | 57.9% |
 | **ALL** | **89.4%** | 64.8% |
 
-> Model v2 fine-tuned on 16,069 images including top-view, side-view and **bottom-view** Shahed-136 footage.  
+> Model v2 fine-tuned on 16,069 images including top-view, side-view and **bottom-view** Shahed-136 footage.
 > Training: 50 epochs · RTX 4070 Ti · 1h54
-
----
-
-## 🖥️ Screenshot
-
-<img width="3840" height="2086" alt="shahed_detector01" src="https://github.com/user-attachments/assets/0c4ffd19-4a07-4817-ae6a-10be6754fdce" />
-
----
-
-## 🎬 Demo Video
-
-[![Shahed Detection System Demo](https://img.youtube.com/vi/x4tG5W_8uVs/maxresdefault.jpg)](https://www.youtube.com/watch?v=x4tG5W_8uVs)
-
-> Click the image to watch the demo on YouTube
 
 ---
 
 ## ⚙️ Installation
 
 ```bash
-pip install ultralytics opencv-python numpy matplotlib reportlab Pillow
+pip install -r requirements.txt
 ```
 
 **Optional (audio alarm on Windows):**
@@ -94,13 +127,21 @@ python drone_shahed_detector.py
 4. Configure danger distance threshold (meters)
 5. Click **LANCER LA DÉTECTION**
 
+To run the standalone fusion demo (no video/model required):
+
+```bash
+python simulate_fusion_demo.py
+```
+
 ---
 
 ## 📁 Project Structure
 
 ```
-Drone_Shaed_AI/
+Drone_Shaed_AI_Fusion/
 ├── drone_shahed_detector.py   # Main detection system (GUI + pipeline)
+├── sensor_fusion.py           # Multi-sensor Kalman fusion tracker (CA model, OOSM, prediction)
+├── simulate_fusion_demo.py    # Standalone reproducible fusion vs single-sensor benchmark
 ├── entrainement_v2.py         # Fine-tuning script (transfer learning)
 ├── Annotate_dessous.py        # Manual annotation tool (YOLO format)
 ├── train_shahed.py            # Initial training script
@@ -114,19 +155,22 @@ Drone_Shaed_AI/
 ## 🧠 Architecture
 
 ```
-Camera / Video / RTSP
-        ↓
-   YOLOv8s Inference (GPU/CPU)
-        ↓
-   Kalman Multi-Object Tracker
-        ↓
-   Behavioral Analysis
-        ↓
-   GPS-Free Geolocalization
-        ↓
-   Alert Pipeline (audio + email + push)
-        ↓
-   KML / CSV / PDF Export
+Camera / Video / RTSP  ──┐
+                          ├──►  Multi-Sensor Kalman Fusion Tracker
+Optional 2nd sensor ─────┘        (constant-acceleration model,
+(RF / radar / 2nd camera)          async / out-of-sequence handling)
+                                          │
+                                          ▼
+                                Behavioral Analysis
+                                          │
+                                          ▼
+                                GPS-Free Geolocalization
+                                          │
+                                          ▼
+                                Alert Pipeline (audio + email + push)
+                                          │
+                                          ▼
+                                KML / CSV / PDF Export
 ```
 
 ---
@@ -164,6 +208,12 @@ Positions are exported as **KML** (Google Earth) and **CSV** (QGIS).
 
 ---
 
+## 🧪 Validation
+
+The fusion tracker's behavior under sensor dropout and asynchronous measurements is validated in [`simulate_fusion_demo.py`](simulate_fusion_demo.py) against a simulated maneuvering target with a controlled camera dropout window. Further validation against real annotated drone footage (e.g. the [Anti-UAV](https://github.com/ZhaoJ9014/Anti-UAV) / [Anti-UAV410](https://github.com/HwangBo94/Anti-UAV410) benchmarks) is in progress.
+
+---
+
 ## 📄 License
 
 GPL-3.0 — see [LICENSE](LICENSE)
@@ -172,7 +222,7 @@ GPL-3.0 — see [LICENSE](LICENSE)
 
 ## 👤 Author
 
-**Alexandre Martin** — AM Consulting, France  
+**Alexandre Martin** — AM Consulting, France
 [GitHub](https://github.com/alexandre196) · [Website](https://www.amconsulting-formation.com)
 
 > *"Every second of early warning saves lives."*
