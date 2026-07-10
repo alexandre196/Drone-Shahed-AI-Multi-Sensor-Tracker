@@ -40,7 +40,11 @@ A single visual sensor loses the target during occlusion, glare, or a sharp turn
 | RF/radar only | 14.06 px |
 | **Fused** | **3.36 px** |
 
-The fusion track stays locked on the true trajectory through the dropout window instead of drifting or freezing — see [`simulate_fusion_demo.py`](simulate_fusion_demo.py) for the full reproducible scenario and plot.
+The fusion track stays locked on the true trajectory through the dropout window instead of drifting or freezing:
+
+![Fusion vs single-sensor tracking, and trajectory prediction with uncertainty cone](fusion_demo.png)
+
+> Left: camera-only tracking loses the target during the dropout (turn), while the fused track (camera + RF) stays on course. Right: trajectory prediction with growing 1-σ uncertainty ellipse. Full reproducible scenario in [`simulate_fusion_demo.py`](simulate_fusion_demo.py).
 
 ### Architecture of `sensor_fusion.py`
 
