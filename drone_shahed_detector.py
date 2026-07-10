@@ -69,6 +69,7 @@ import wave
 import subprocess
 
 from ultralytics import YOLO
+from sensor_fusion import Measurement, FusionTrack
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -380,46 +381,34 @@ def mux_video_audio(video_path, audio_path, output_path):
         return False
 
 
-class KalmanDrone:
-    def __init__(self, cx, cy):
-        self.F = np.array([[1,0,1,0],[0,1,0,1],[0,0,1,0],[0,0,0,1]], dtype=float)
-        self.H = np.array([[1,0,0,0],[0,1,0,0]], dtype=float)
-        self.Q = np.eye(4, dtype=float) * 0.1
-        self.R = np.eye(2, dtype=float) * 5.0
-        self.x = np.array([[cx],[cy],[0.],[0.]], dtype=float)
-        self.P = np.eye(4, dtype=float) * 500.0
-
-    def predict(self):
-        self.x = self.F @ self.x
-        self.P = self.F @ self.P @ self.F.T + self.Q
-        return int(self.x[0,0]), int(self.x[1,0])
-
-    def update(self, cx, cy):
-        z = np.array([[cx],[cy]], dtype=float)
-        y = z - self.H @ self.x
-        S = self.H @ self.P @ self.H.T + self.R
-        K = self.P @ self.H.T @ np.linalg.inv(S)
-        self.x = self.x + K @ y
-        self.P = (np.eye(4) - K @ self.H) @ self.P
-
-    def get_velocity(self):
-        return float(self.x[2,0]), float(self.x[3,0])
-
-    def get_position(self):
-        return int(self.x[0,0]), int(self.x[1,0])
-
-
 class DroneTracker:
-    def __init__(self, max_lost=25, match_threshold=180):
+    """
+    v4 — bascule sur sensor_fusion.FusionTrack :
+      - modele a acceleration constante (mieux pour les virages qu'un
+        modele a vitesse constante)
+      - API prete a recevoir un 2e capteur (RF, radar, 2e camera...) via
+        add_measurement(sensor_id=...) en plus de la camera YOLO
+      - le temps est maintenant explicite (secondes), plus "1 update = 1
+        frame implicite" -> ca reste correct meme avec du frame_skip
+        ou du framerate variable
+    """
+
+    # bruit de mesure (variance px^2) de la camera YOLO : a affiner selon
+    # la stabilite de tes bounding boxes. 5.0 = valeur reprise de l'ancien
+    # KalmanDrone pour ne pas changer le comportement existant.
+    CAMERA_R = np.eye(2, dtype=float) * 5.0
+
+    def __init__(self, max_lost=25, match_threshold=180, fps=25):
         self.tracks          = {}
         self.next_id         = 0
         self.max_lost        = max_lost
         self.match_threshold = match_threshold
+        self.fps             = fps
 
-    def _new_track(self, name, cx, cy):
+    def _new_track(self, name, cx, cy, t):
         tid = self.next_id
         self.tracks[tid] = {
-            "kalman":    KalmanDrone(cx, cy),
+            "kalman":    FusionTrack(t, cx, cy),   # cle "kalman" conservee
             "trail":     deque(maxlen=TRAIL_LENGTH),
             "lost":      0,
             "name":      name,
@@ -429,11 +418,32 @@ class DroneTracker:
         self.next_id += 1
         return tid
 
-    def track(self, detections):
-        for tid, t in self.tracks.items():
-            px, py = t["kalman"].predict()
-            t["predicted"] = (px, py)
-            t["lost"] += 1
+    def add_external_measurement(self, tid, x, y, sensor_id, sigma_px, t):
+        """
+        Point d'entree pour un 2e capteur (RF/radar/2e camera) : appelle
+        ca en plus de track() quand une mesure d'un autre capteur arrive,
+        avec son propre timestamp t (peut etre "en retard" par rapport a
+        la derniere frame camera -> FusionTrack gere ca tout seul).
+        """
+        if tid not in self.tracks:
+            return
+        R = np.eye(2, dtype=float) * (sigma_px ** 2)
+        meas = Measurement(t=t, x=x, y=y, R=R, sensor_id=sensor_id)
+        self.tracks[tid]["kalman"].fuse(meas)
+
+    def track(self, detections, t=None):
+        """t : timestamp absolu en secondes de la frame courante.
+        Si omis, on avance d'une frame (1/fps) par rapport au dernier
+        appel -> compatible avec l'ancien usage sans changer les appelants."""
+        if t is None:
+            t = getattr(self, "_last_t", 0.0) + 1.0 / max(self.fps, 1)
+        self._last_t = t
+
+        for tid, tr in self.tracks.items():
+            px, py = tr["kalman"].predict(t)
+            px, py = int(px), int(py)
+            tr["predicted"] = (px, py)
+            tr["lost"] += 1
 
         centers      = [(int((b[0]+b[2])/2), int((b[1]+b[3])/2)) for _,_,b in detections]
         matched_tids = set()
@@ -455,33 +465,35 @@ class DroneTracker:
                 matched_tids.add(best_tid)
                 matched_dets.add(det_i)
                 det_to_tid[det_i] = best_tid
-                self.tracks[best_tid]["kalman"].update(cx, cy)
+                meas = Measurement(t=t, x=cx, y=cy, R=self.CAMERA_R, sensor_id="camera")
+                self.tracks[best_tid]["kalman"].fuse(meas)
                 self.tracks[best_tid]["lost"] = 0
                 self.tracks[best_tid]["name"] = detections[det_i][0]
                 sx, sy = self.tracks[best_tid]["kalman"].get_position()
-                self.tracks[best_tid]["trail"].append((sx, sy))
+                self.tracks[best_tid]["trail"].append((int(sx), int(sy)))
 
         for det_i in range(len(detections)):
             if det_i not in matched_dets:
                 name, _, _ = detections[det_i]
                 cx, cy = centers[det_i]
                 already_exists = False
-                for tid, t in self.tracks.items():
+                for tid, tr in self.tracks.items():
                     if tid in matched_tids:
                         continue
-                    px, py = t["predicted"]
+                    px, py = tr["predicted"]
                     if ((cx-px)**2 + (cy-py)**2)**0.5 < self.match_threshold * 2:
-                        self.tracks[tid]["kalman"].update(cx, cy)
+                        meas = Measurement(t=t, x=cx, y=cy, R=self.CAMERA_R, sensor_id="camera")
+                        self.tracks[tid]["kalman"].fuse(meas)
                         self.tracks[tid]["lost"] = 0
                         self.tracks[tid]["name"] = name
                         sx, sy = self.tracks[tid]["kalman"].get_position()
-                        self.tracks[tid]["trail"].append((sx, sy))
+                        self.tracks[tid]["trail"].append((int(sx), int(sy)))
                         matched_tids.add(tid)
                         det_to_tid[det_i] = tid
                         already_exists = True
                         break
                 if not already_exists:
-                    new_tid = self._new_track(name, cx, cy)
+                    new_tid = self._new_track(name, cx, cy, t)
                     det_to_tid[det_i] = new_tid
 
         results = []
@@ -492,7 +504,7 @@ class DroneTracker:
                 results.append((tid, name, dist, bbox,
                                 list(self.tracks[tid]["trail"]), (vx, vy)))
 
-        lost_ids = [tid for tid, t in self.tracks.items() if t["lost"] > self.max_lost]
+        lost_ids = [tid for tid, tr in self.tracks.items() if tr["lost"] > self.max_lost]
         for tid in lost_ids:
             del self.tracks[tid]
 
@@ -703,7 +715,7 @@ def analyze_video(video_input, video_output, model_path,
     out = cv2.VideoWriter(video_output,
                           cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
 
-    tracker            = DroneTracker()
+    tracker            = DroneTracker(fps=fps)
     confirm_counter    = {}   # tid → nb frames consécutives de danger
     all_distances      = []
     distance_timeline  = []
@@ -751,13 +763,16 @@ def analyze_video(video_input, video_output, model_path,
         # FIX frame_skip : sur les frames intermédiaires on ne repasse
         # PAS les mêmes détections au tracker (ça tirait les vitesses
         # Kalman vers 0). On fait juste predict() pour interpoler.
+        t_now = frame_count / max(fps, 1)
         if is_yolo_frame:
-            tracked = tracker.track(last_results)
+            tracked = tracker.track(last_results, t=t_now)
         else:
-            # Prédiction pure Kalman — avance les positions sans update
+            # Prédiction pure (modèle à accélération constante) — avance
+            # les positions sans update, jusqu'à l'instant t_now
             tracked = []
             for tid, t in tracker.tracks.items():
-                px, py = t["kalman"].predict()
+                px, py = t["kalman"].predict(t_now)
+                px, py = int(px), int(py)
                 t["predicted"] = (px, py)
                 t["trail"].append((px, py))
                 t["lost"] += 1
