@@ -218,6 +218,19 @@ The fusion tracker's behavior under sensor dropout and asynchronous measurements
 
 ---
 
+## ⚠️ Limitations & Known Constraints
+
+This is a portfolio / R&D project demonstrating an end-to-end detection-tracking-alerting pipeline — not a certified operational counter-drone system. Being explicit about scope:
+
+- **Monocular distance estimation** — distance is inferred from `(known real width × focal length) / pixel width`, a standard technique but sensitive to non-frontal viewing angles, FOV miscalibration, and lighting. It is not true ranging (no stereo, radar, or LIDAR).
+- **Detection accuracy in the field will be lower than the reported mAP@50 (99.5%)** — that number reflects performance on a validation set drawn from conditions similar to training. Robustness to night, rain, backlight, or unseen altitudes/angles has not been benchmarked.
+- **Single RGB sensor** — the fusion tracker (`sensor_fusion.py`) is architected to accept a second sensor (RF, radar, IR) via `add_external_measurement()`, but has only been validated with camera-only input and a simulated second sensor. Real multi-sensor hardware integration is future work.
+- **No adversarial or hostile-environment testing** — no measured false-positive/false-negative rate on real-world footage, no jamming resistance testing, no degraded-latency benchmarking.
+
+These are the same constraints faced by any single-camera detection system; a production counter-UAS system would require certified sensor fusion (radar/RF/acoustic), adversarial testing, and field validation well beyond the scope of this project.
+
+---
+
 ## 📄 License
 
 GPL-3.0 — see [LICENSE](LICENSE)
@@ -229,4 +242,4 @@ GPL-3.0 — see [LICENSE](LICENSE)
 **Alexandre Martin** — AM Consulting, France
 [GitHub](https://github.com/alexandre196) · [Website](https://www.amconsulting-formation.com)
 
-> *"Every second of early warning saves lives."*
+> *An end-to-end exploration of real-time detection, multi-sensor tracking, and geolocation — built to learn, and to show the work.*
