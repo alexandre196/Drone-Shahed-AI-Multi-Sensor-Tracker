@@ -4,7 +4,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-orange)
-![License](https://img.shields.io/badge/License-GPL--3.0-green)
+![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-red)
 ![mAP@50 Shahed](https://img.shields.io/badge/mAP@50%20Shahed-99.5%25-brightgreen)
 ![mAP@50 Global](https://img.shields.io/badge/mAP@50%20Global-89.4%25-yellow)
 ![Tracking](https://img.shields.io/badge/Tracking-Multi--Sensor%20Kalman%20Fusion-blueviolet)
@@ -254,7 +254,9 @@ These are the same constraints faced by any single-camera detection system; a pr
 
 ## 📄 License
 
-GPL-3.0 — see [LICENSE](LICENSE)
+**PolyForm Noncommercial License 1.0.0** — see [LICENSE](LICENSE)
+
+Free to use, study, modify, and share for any **noncommercial purpose** (personal projects, research, education, evaluation). **Commercial use requires contacting the author.** If your organization is interested in using this work commercially, reach out — see contact below.
 
 ---
 
